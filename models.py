@@ -11,28 +11,6 @@ from transformers import get_linear_schedule_with_warmup, AdamW
 
 class BasicBertModel(nn.Module):
     
-    #подходит для: 
-    #cointegrated/rubert-tiny2
-    
-    #SberDevices:
-    
-    #ai-forever/ruBert-base/large
-    #ai-forever/ruRoberta-large
-    #ai-forever/sbert_large_mt_nlu_ru
-    
-    #Trained for similar classification problems models:
-    
-    #IlyaGusev/rubertconv_toxic_clf
-    #cointegrated/rubert-tiny-toxicity
-    #apanc/russian-inappropriate-messages
-    #s-nlp/russian_toxicity_classifier
-    #MonoHime/rubert-base-cased-sentiment-new
-    #cointegrated/rubert-tiny-sentiment-balanced
-    #blanchefort/rubert-base-cased-sentiment-rusentiment
-    #Aniemore/rubert-tiny2-russian-emotion-detection
-    #cointegrated/rubert-tiny2-cedr-emotion-detection
-    #MaxKazak/ruBert-base-russian-emotion-detection
-    
     def __init__(self, n_classes, hugging_face_model, config, n_classes_additional=[]):
         super().__init__()
         
@@ -82,7 +60,6 @@ class BasicBertModel(nn.Module):
         except:
             self.last_layer_input_dim = self.bert.base_model.embeddings.word_embeddings.embedding_dim
         
-        #Если мы хотим конкатенировать финальный аутпут с промежуточным, то нужно зарегистрировать соответствующие хуки
         n = 1
         if self.concatenate is not None:
             for hook in self.concatenate:
@@ -104,8 +81,7 @@ class BasicBertModel(nn.Module):
             
         if self.pooling=='[CLS]+mean' or self.pooling == 'prefix+mean':
             self.last_layer_input_dim = self.last_layer_input_dim * 2       
-        #Создаем классификатор
-
+            
         n_out_classes = [self.n_classes] + n_classes_additional
         self.classifiers = []
         for i in range(len(n_out_classes)):
@@ -153,10 +129,8 @@ class BasicBertModel(nn.Module):
                 self.embs_to_train = self.add_tokens
         
     def forward(self, input, rest, classifier = 0):
-        #токенизируем
         tokens = self.tokenizer(input, return_tensors='pt', padding=True, 
                                 truncation=True, max_length=self.length).to(self.device)
-        #пропускаем через bert
         emb = self.bert(**{k: v for k, v in tokens.items()}, output_attentions=self.compute_diversity)
         if self.pooling in ['MLM', 'soft MLM']:
             return emb[0][:, -2, [self.no, self.yes]], None, torch.tensor(0)
@@ -170,14 +144,11 @@ class BasicBertModel(nn.Module):
                 pooler_output = emb.pooler_output
             emb = emb.last_hidden_state
             
-        #конкатенируем с промежуточными представлениями, если нужно 
-
         triplet_embs = None,
         if self.compute_triplet:
             triplet_embs = emb[:, 0, :] if self.pooling != 'prompt-based' else emb[:, -2, :]
 
         emb = self.pool(emb, tokens, pooler_output)
-        #если хотим, нормализуем
         if self.normalize:
             emb = F.normalize(emb)
         if self.additional_features>0:
@@ -190,7 +161,6 @@ class BasicBertModel(nn.Module):
             else:
                 attentions = torch.stack(attentions[self.diversity_layers[0]:self.diversity_layers[1]])
             diversity = self.diversity(attentions)
-        #получаем логиты 
 
         return self.classifiers[classifier](emb), emb, diversity
 
@@ -266,7 +236,7 @@ class BasicBertModel(nn.Module):
     
 
 class ZeroShotBertModel(nn.Module):
-    #подходит для: 
+    
     def __init__(self, hugging_face_model, config):
         super().__init__()
         self.tokenizer = AutoTokenizer.from_pretrained(hugging_face_model)
