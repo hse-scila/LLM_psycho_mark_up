@@ -30,7 +30,6 @@ from datetime import datetime
 import time
 from transformers import get_linear_schedule_with_warmup, AdamW
 
-# класс для обучения моделей
 class EthnoHateTrainer():
     def __init__(self, model, train_loader, val_loader, configs, 
                  additional_train_loaders=None, additional_val_loaders=None):
@@ -121,7 +120,7 @@ class EthnoHateTrainer():
         except:
             self.nli = False
         self.configs = configs
-    #считаем функцию потерь
+    
     def compute_loss(self, text, rest, target, task):
         
         logits, embs, loss_diversity = self.model(text, rest, task)
@@ -149,11 +148,11 @@ class EthnoHateTrainer():
             self.all_losses[task]['loss_diversity'].append(loss_diversity.item())
     
         return loss, logits, loss_cross, loss_trip, loss_diversity
-    #обучение одной эпохи  
+      
     def zero_embs(self):
          if isinstance(self.model.embs_to_train, int):    
             self.model.bert.embeddings.word_embeddings.weight.grad[:-self.model.embs_to_train]=0
-    #обучение
+    
     def train_one_epoch(self, i):
         self.answers_train = [[] for _ in range(self.n_tasks)] 
         self.target_train = [[] for _ in range(self.n_tasks)]
@@ -220,7 +219,7 @@ class EthnoHateTrainer():
                     self.train_loader.idx_to_augment = torch.unique(self.train_loader.idx_to_augment)
                 else:
                     self.train_loader.idx_to_augment = cond
-    #валидация
+   
     def eval_one_epoch(self, i):
         self.answers_val = [[] for _ in range(self.n_tasks)]
         loops = [tqdm.notebook.tqdm(self.val_loader, position=0, leave=True)]
@@ -247,11 +246,9 @@ class EthnoHateTrainer():
                     loops[no].set_description(f"{self.tasks[no]}: epoch {i+1} of {self.n_epochs}. Validating...") 
 
         for j in range(self.n_tasks-int(self.configs.pass_etno)):
-            #print(self.answers_val[j])
             self.answers_val[j] = torch.cat(self.answers_val[j])
-    #полный цикл обучения
+    
     def train(self, checkpointing=False, path=None):  
-    #отпралвяем модель на cpu или gpu
         self.model.to(self.model.device)  
         if self.n_epochs==0:
             with torch.inference_mode():
@@ -271,7 +268,7 @@ class EthnoHateTrainer():
                             f'f1 scores + accuracy validation set',
                             'zero shot')
         for i in range(self.n_epochs):
-        #тренируем
+        
             self.model.train()
             if self.strategy != 'full':
                 self.model.bert.eval()
@@ -285,10 +282,10 @@ class EthnoHateTrainer():
                     self.model.bert.embeddings.train()
                                
             self.train_one_epoch(i)
-        #валидируем
+       
             self.model.eval()
             self.eval_one_epoch(i)
-        #графики
+        
             clear_output(True)
             for j in range(self.n_tasks):
                 plot_losses(self.all_losses[j], self.tasks[j])
@@ -335,8 +332,7 @@ class EthnoHateTrainer():
             self.metrics_train, self.metrics_val = self.metrics_train[0], self.metrics_val[0]
         
         return self.metrics_train, self.metrics_val
-
-#рисуем валидационные метрики   
+   
 def plot_metrics(trues, answers, metrics, title, task):
     
     report_train = classification_report(trues, answers, output_dict=True)
@@ -350,7 +346,7 @@ def plot_metrics(trues, answers, metrics, title, task):
     plt.xlabel('epoch')
     plt.show()
     return metrics
-#рисуем значения функций потерь
+
 def plot_losses(all_losses, task):
     df = pd.DataFrame(all_losses)
     df['loss_cross'] = df['loss_cross'].rolling(100, min_periods=1).mean()
@@ -358,7 +354,7 @@ def plot_losses(all_losses, task):
     
     plt.title(f'{task}: train losses')
     plt.show()
-#майним
+
 def mine(workspace, name, miner_name, miner_data, target_name, miner_circles, miner_threshold, 
         miner_batch_size, classes_to_find=None, train=True, leave_data=True, leave_model=True,
         masking = None, get_data=True, append_only=None, save_all_scores = False):
@@ -448,7 +444,6 @@ def mine(workspace, name, miner_name, miner_data, target_name, miner_circles, mi
             return miner.mined_data
     return mined_data, metrics_train, metrics_val
 
-#функции для проведения экспериментов (логирование, кэширование, greed search с исключениями)
 def augment(data, configs, tpe='train'):
     augmentizer = Augmentizer(data, configs, tpe=tpe, local=configs.local) 
     data, additional_features = augmentizer.augment()
@@ -480,7 +475,7 @@ def find_or_create_cache(configs, data=None):
 
 def create_and_fit(model_name, configs, save = False, 
                  save_as_miner=False, best_metric=None, augs_only=False, data=None):
-    #пытаемся найти данные в кэше или аугментируем и сохраняем в кэш
+    #look in cache or create
     os.makedirs(f'{configs.workspace}/{configs.target_name}/cache/train', exist_ok=True)
     os.makedirs(f'{configs.workspace}/{configs.target_name}/cache/test', exist_ok=True)
     os.makedirs(f'{configs.workspace}/{configs.target_name}/cache/val', exist_ok=True)
@@ -496,7 +491,7 @@ def create_and_fit(model_name, configs, save = False,
         if augs_only:
             return 'OK', 'OK', 'OK'
 
-    #ресэмплер
+    #resampling
     train_dataset = EthnoHateDataset(train_data, configs, type='train')
     if configs.weights == 'resample':
         if not configs.parallel:
@@ -527,7 +522,7 @@ def create_and_fit(model_name, configs, save = False,
         else:
             sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
             shuffle = False
-    #Даталоудеры (torch style)
+    #ataloaers (torch style)
     print('Getting loaders...')
     #multi task overhead!
     train_loader = DataLoader(train_dataset, 
@@ -564,7 +559,7 @@ def create_and_fit(model_name, configs, save = False,
             val_loaders.append(DataLoader(EthnoHateDataset(test, configs, type='test', nli_path=path), 
                    batch_size=configs.batch_size, shuffle=False))
             n_classes.append(tr_loaders[-1].dataset.n_classes)
-    #обучение    
+    #training    
     print('Initializing model...')
     if not configs.nli:
         model = BasicBertModel(train_loader.dataset.n_classes, model_name, configs, n_classes)
@@ -695,7 +690,7 @@ def grid_search(model_name, target_name, names_values_dictionary, workspace, nam
         
     for params in prod:
         init = dict()
-        for j,i in enumerate(params): #внимание!!! до python 3.7 словари неупорядочены, поэтому нужно использовать упорядоченный словарь вместо обычного
+        for j,i in enumerate(params): 
             init[names[j]] = i
             
         stop = False
@@ -808,7 +803,7 @@ def get_number_of_models(names_values_dictionary, rules = None, check=False):
     exps = 0
     for params in prod:
         init = dict()
-        for j,i in enumerate(params): #внимание!!! до python 3.7 словари неупорядочены, поэтому нужно использовать упорядоченный словарь вместо обычного
+        for j,i in enumerate(params):
             init[names[j]] = i
             
         stop = False
