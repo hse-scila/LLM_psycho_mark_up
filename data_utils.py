@@ -39,10 +39,10 @@ def any_cl(cl):
      
 def get_target_data(df, name, groups = ['eth_group_to_code', 'document.id'], func='mode', sense=False, save=False,
                     any_class='yes'):
-    #remove or not remove texts that don't make sense
+    
     if sense:
         df = df[df.do_text_make_sense_raw=='yes']
-    #remove na #choose answer according to reviewers (or na if impossible)  
+    
     if func == 'mode':
         df = df[pd.notnull(df[name])].groupby(groups)[name].agg(mode).dropna().to_frame().reset_index()
     elif func == 'all':
@@ -58,17 +58,13 @@ def prepare_data_single_target(config,
                  coded_path ='file2_14998_coding_results.txt'):
     
     target_name = config.target_name
-    #читаем coded_results и получаем данные для таргета
     coded = pd.read_csv(coded_path, delimiter='	', encoding='utf8', low_memory=False)
     data =  get_target_data(coded, target_name, func=config.func)
         
-    #обрабатывать переменную как этноспецифичную (добавлять в начало текста этничность) или нет
-    #читаем тексты и совмещаем с данными
     texts = pd.read_csv(texts_path, delimiter='	', encoding='utf8').drop(columns='stage').drop_duplicates().set_index('document.id')
     data = data.set_index('document.id').join(texts)
     data = data[~data[target_name].isin(config.drop)]
     
-    #автоматическая кодировка (например yes и no как то случайно кодируются в 0 и 1) или своя, или без кодировки (если уже закодировано)
     if config.coding == 'auto': 
         data[target_name] = data[target_name].astype('category')
         coding = {k:v for k,v in zip(range(len(data[target_name].cat.categories)), data[target_name].cat.categories)}
@@ -247,7 +243,7 @@ class EthnoHateDataset(Dataset):
             return self.nli_data.shape[0]
         
     def replace(self, text, idx):
-        #print(text)
+        
         actual_replacement = dict()
         try:
             for i in self.texts_info.loc[idx]['possible_replacements'].keys():
@@ -264,8 +260,7 @@ class EthnoHateDataset(Dataset):
             for e,g,_,s,p in zip(*self.texts_info.loc[idx].iloc[1:6].tolist()):
                 text = text.replace(e, 
                         str(np.random.choice(self.transform_slovar[actual_replacement[g]][s])[p]))
-        #print(text)
-        #print('--------------')
+        
         return text
     
     def extract(self, text, idx):
@@ -291,7 +286,7 @@ class EthnoHateDataset(Dataset):
             if self.add_sep:
                 new_text.extend([self.sep_token])
         text = ' '.join(new_text) 
-        #print(text)
+    
         return text
 
 
@@ -346,7 +341,6 @@ class EthnoHateDataset(Dataset):
                     weights=self.weights[idx] if self.weighting_type is not None else None)
         
         if self.nli:
-            #print(hypo)
             return [text, hypo], target, 'None', idx
         
         rest = 0
@@ -412,7 +406,6 @@ def awmpler(target):
     
     return sampler
 
-#перед этим нужно изменить кодировку на какие то большие желательно нечетные цифры и заново получить данные
 def check_leak(train_data, test_data, coding):
     target = train_data.columns[1]
     inters = list(set(train_data.index).intersection(set(test_data.index)))
