@@ -139,7 +139,7 @@ class Augmentizer():
 
         self.path = f'{self.configs.workspace}/{self.configs.target_name}/cache/{self.type}'
         self.batch_size = configs.augmentation_batch
-    #парафразинг  
+    
     def paraphrase(self, text, iter): 
         if iter == 0:
             self.current_tokenizer = AutoTokenizer.from_pretrained(self.paraphraser, 
@@ -155,7 +155,7 @@ class Augmentizer():
         max_length = int(encoded_input.input_ids.shape[1] * self.length_multiplier + 5) if self.length_multiplier is not None else self.max_length
         out = self.generate(encoded_input, max_length)
         return self.current_tokenizer.batch_decode(out, skip_special_tokens=True)
-    #восстановление с помощью gpt моделей
+    
     def gpt_restore_unbatched(self, text, iter):
         if iter == 0:
             self.current_tokenizer = AutoTokenizer.from_pretrained(self.gpt_restorer, 
@@ -181,6 +181,7 @@ class Augmentizer():
                             add_special_tokens=False)["input_ids"])*self.length_multiplier+5)
             out = self.generate(encoded_input, max_length)
         return self.current_tokenizer.batch_decode(out, skip_special_tokens=True)
+        
     def FRED_restore(self, text, iter, weights=None):
         if iter==0:
             self.current_tokenizer = AutoTokenizer.from_pretrained(self.FRED)
@@ -277,7 +278,7 @@ class Augmentizer():
             forced_bos_token_id=ru_id, max_new_tokens=512,
             no_repeat_ngram_size = self.grams)
         return self.current_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
-    # berts-based imputer
+  
     def mask_unmask(self, text, iter):
         if iter == 0:
             self.current_tokenizer =  AutoTokenizer.from_pretrained(self.imputer,
@@ -307,7 +308,7 @@ class Augmentizer():
         text = self.current_tokenizer.decode(inputs["input_ids"][0], skip_special_tokens=True)
         
         return text
-    #считает скоры для токсичности, эмоций и т.п. работает с большинством подобных BERT моделей
+        
     def text2class_scores(self, text, aggregate=False):
         
         inputs = self.current_tokenizer(text, return_tensors='pt', 
@@ -319,7 +320,7 @@ class Augmentizer():
             return 1 - proba.T[0] * (1 - proba.T[-1])
         
         return proba
-    #!REDUNDANT FEATURE создает переменную для токсичности/сентимента/...
+    #!REDUNDANT FEATURE 
     def get_all_scores(self, name):
         self.data[f'{name}_score'] = None
         scores = []
@@ -348,7 +349,7 @@ class Augmentizer():
                                 diversity_penalty = self.diversity_penalty,
                                 repetition_penalty = self.repetition_penalty,)
         return out
-    #проводит полную аугментацию по строкам для одного способа
+ 
     def add_all_rows(self, aug, func, indexes):
         for iter,i in tqdm.notebook.tqdm(enumerate(range(0,len(indexes), self.batch_size)),
                                          desc=f'adding texts for {aug.split("/")[-1]}'):
@@ -361,7 +362,7 @@ class Augmentizer():
                                  self.configs.target_name : labels},
                                  index = index.repeat(self.n_samples))
             self.data = pd.concat([self.data.loc[:], new_rows.iloc[:]]) 
-    #если хотим использовать англоязычные модели
+
     def check_augs(self, indexes):
         
         self.current_model = torch.load(self.controller)
@@ -369,11 +370,8 @@ class Augmentizer():
         
         old_scores = []
         new_scores = []
-        #print(self.data.iloc[self.n:,:])
         true_labels = torch.tensor(self.data.iloc[:self.n,1].loc[indexes].repeat(self.n_samples).values)
-     
-        #print(self.data.iloc[self.n:,0].index)
-        #print(indexes)
+
         with torch.inference_mode():
             for i in tqdm.notebook.tqdm(range(0, len(indexes), self.batch_size), desc='checking'):
                 inp = self.data.iloc[:self.n,0].loc[indexes[i:i+self.batch_size]].tolist()
@@ -420,10 +418,7 @@ class Augmentizer():
     
         if not self.aug_rest:
             self.data.iloc[self.n:,:].drop(indexes[cond], inplace=True)
-            print(self.data.dtypes)
-            print(self.data.shape)
         else:
-            print(self.data.shape[1]-2)
             for i in range(self.data.shape[1]-2):
                 print(self.data.iloc[:,
                 2+i].loc[indexes].loc[cond[i::self.n_samples]])
@@ -471,7 +466,7 @@ class Augmentizer():
                 
 
     def find_etnos_groups(self, text):
-        #print(text)
+        
         text = re.findall(r"\b[^ ]+?\b",text)
         groups = []
         for m,etno in enumerate(self.slovar.iloc[:, 6:].values.flatten()):
@@ -513,7 +508,7 @@ class Augmentizer():
                                                    max_length=512)
                 res.extend(text)
         return res
-    #проводит все указанные аугментации на датасете
+    #gathers all augs
     def augment(self):
         add_texts = False
         #добавляет новые строки только к тренировочному датасету
@@ -601,5 +596,4 @@ class Augmentizer():
 
         if self.only_augs:
             assert False
-        print(self.data)
         return self.data, self.additional_features
