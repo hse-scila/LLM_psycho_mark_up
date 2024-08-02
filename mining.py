@@ -36,7 +36,7 @@ class EthnoHateMinerDataset(EthnoHateDataset):
         #    rest = self.proc_rest(rest)
 
         return self.data.index[idx], ethnicity, text, rest
-#Майнер    
+
 class BertMiner():
     def __init__(self, workspace, name, miner, miner_data, target_name, miner_threshold, 
                  miner_batch_size, classes_to_find, device='cuda', get_data=True):
@@ -85,7 +85,6 @@ class BertMiner():
                     id, ethnicity, text, rest = data 
                 else: # TO-DO
                     pass   
-        #выбираем наблюдения по порогу уверенности и добавляем в датасет итеративно
                 with torch.no_grad():
                     logits, *rest = self.miner(text, rest)
                     probs = F.softmax(logits, dim=-1)
